@@ -1,0 +1,7 @@
+/.env
+/core
+/docker-compose.yml
+/gcp-service-accounts
+/serving
+/spark
+/working
