@@ -1,7 +1,2 @@
-/.env
-/core
-/docker-compose.yml
-/gcp-service-accounts
-/serving
-/spark
-/working
+entity_store_config.yaml
+.vscode
