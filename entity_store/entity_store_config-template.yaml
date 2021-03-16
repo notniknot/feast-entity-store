@@ -1,0 +1,7 @@
+minio:
+  endpoint: localhost:19000
+  access_key: ***
+  secret_key: ***
+webhook:
+  tokens:
+    - ***
