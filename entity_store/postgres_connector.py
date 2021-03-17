@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from contextlib import contextmanager
-from os import closerange
-from typing import Literal
+from io import StringIO
 
+import pandas as pd
 from psycopg2 import sql
-from psycopg2.extras import Json, RealDictCursor
+from psycopg2.extras import RealDictCursor
 from psycopg2.pool import SimpleConnectionPool
 
 
@@ -22,7 +21,7 @@ def exception_decorator(wrapped_function):
         try:
             result = wrapped_function(*args, **kwargs)
         except Exception as error:
-            logging.getLogger('database_connector').exception(
+            logging.getLogger('postgres_connector').exception(
                 'Exception occurred in %s.', wrapped_function.__name__
             )
             raise type(error)(f'Exception occurred in {wrapped_function.__name__}: {str(error)}')
@@ -31,34 +30,30 @@ def exception_decorator(wrapped_function):
     return _wrapper
 
 
-class DatabaseConnector:
+class PostgresConnector:
 
-    db_instance = None
+    instance = None
+
+    data_type_mapping = {
+        'INT64': 'BIGINT',
+        'BOOL': 'BOOLEAN',
+    }
 
     @classmethod
-    def get_db_instance(cls) -> DatabaseConnector:
-        if cls.db_instance is None:
-            cls.db_instance = cls()
-        return cls.db_instance
+    def get_instance(cls) -> PostgresConnector:
+        if cls.instance is None:
+            cls.instance = cls()
+        return cls.instance
 
     def __init__(self, config):
-        self.logger = logging.getLogger('database_connector')
+        self.logger = logging.getLogger('postgres_connector')
         try:
             self.pool = SimpleConnectionPool(1, 10, **config)
             self.schema = 'entity_lookup'
         except Exception:
-            logging.getLogger('database_connector').exception(
+            logging.getLogger('postgres_connector').exception(
                 'Exception occurred while connecting to the database'
             )
-
-    def _get_dict_cursor(self, conn):
-        return conn.cursor(cursor_factory=RealDictCursor)
-
-    def _get_connection(self):
-        return self.pool.getconn()
-
-    def _put_connection(self, conn):
-        self.pool.putconn(conn)
 
     @contextmanager
     def _transaction(self, cursor_factory=None):
@@ -73,44 +68,94 @@ class DatabaseConnector:
             self.pool.putconn(conn)
 
     @exception_decorator
-    def set_schema_if_not_exists(self):
+    def create_schema_if_not_exists(self):
         with self._transaction() as (_, cursor):
             cursor.execute(
                 sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(self.schema))
             )
 
     @exception_decorator
-    def create_table_if_not_exists(self, table, event_ts, created_ts, entities: dict):
-        with self._transaction() as (conn, cursor):
-            cols = list(entities.keys()) + [event_ts, created_ts]
+    def _create_entity_table_if_not_exists(
+        self, table_name: str, entity_type: str, event_ts: str, created_ts: str
+    ):
+        with self._transaction() as (_, cursor):
             query = sql.SQL(
-                "CREATE TABLE IF NOT EXISTS {table} ( \
-                    {entities}, \
-                    {event_ts} varchar(255), \
-                    {created_ts} varchar(255), \
-                    PRIMARY KEY({cols}) \
-                );"
+                """
+                CREATE TABLE IF NOT EXISTS {table} (
+                    "id" {entity_type},
+                    "feature_table" VARCHAR(255),
+                    {event_ts} TIMESTAMP WITHOUT TIME ZONE,
+                    {created_ts} TIMESTAMP WITHOUT TIME ZONE,
+                    "path" TEXT,
+                    PRIMARY KEY({cols})
+                );
+                """
             ).format(
-                table=sql.Identifier(self.schema, table),
-                entities=sql.SQL(
-                    sql.SQL(', ')
-                    .join(
-                        sql.SQL("{} {}").format(sql.Identifier(col), sql.SQL(type))
-                        for col, type in entities.items()
-                    )
-                    .as_string(conn)
-                ),
+                table=sql.Identifier(self.schema, table_name),
+                entity_type=sql.SQL(entity_type),
                 event_ts=sql.Identifier(event_ts),
                 created_ts=sql.Identifier(created_ts),
-                cols=sql.SQL(', ').join(sql.Identifier(col) for col in cols),
+                cols=sql.SQL(', ').join(
+                    map(sql.Identifier, ['id', 'feature_table', event_ts, created_ts])
+                ),
             )
             cursor.execute(query)
 
+    def create_entity_tables_if_not_exist(self, column_data: dict, parquet_path: str):
+        created_ts = column_data['created_timestamp_column']
+        event_ts = column_data['timestamp_column']
+        table_names = {}
+        for entity_name, entity_type in zip(
+            column_data['entity_names'], column_data['entity_types']
+        ):
+            table_name = f'entity_{entity_name}'
+            self._create_entity_table_if_not_exists(
+                table_name=table_name,
+                entity_type=self.data_type_mapping[entity_type.upper()],
+                event_ts=event_ts,
+                created_ts=created_ts,
+            )
+            table_names[table_name] = entity_name
+        return table_names
+
     @exception_decorator
-    def get_source(self):
-        with self._get_cursor() as cursor:
-            cursor.execute("SELECT * FROM public.xxx")
-            id = cursor.fetchone()
+    def get_columns(self, path_extract: str):
+        with self._transaction(RealDictCursor) as (_, cursor):
+            query = sql.SQL(
+                """-- Reduce to one data source
+                WITH data_source_ltd AS (
+                    select max(ds.id), en.name as entity_name, en.type as entity_type, ft.name as feature_table, ds.timestamp_column, ds.created_timestamp_column from public.data_sources ds
+                    JOIN public.feature_tables ft ON ds.id = ft.batch_source_id
+                    JOIN public.feature_tables_entities_v2 fte ON ft.id = fte.feature_table_id
+                    JOIN public.entities_v2 en ON fte.entity_v2_id = en.id
+                    JOIN public.projects pr ON ft.project_name = pr.name
+                    where ds.config::json ->> 'file_url' like {path}
+                    and ft.is_deleted = false
+                    and pr.archived = false
+                    GROUP BY en.name, en.type, ft.name, ds.timestamp_column, ds.created_timestamp_column
+                )
+                -- Reduce to one row
+                SELECT array_agg(entity_name) as entity_names, array_agg(entity_type) as entity_types, feature_table, timestamp_column, created_timestamp_column FROM data_source_ltd
+                GROUP BY feature_table, timestamp_column, created_timestamp_column;
+                """
+            ).format(path=sql.Literal(f'%{path_extract}%'))
+            cursor.execute(query)
+            return cursor.fetchone()
+
+    def copy_into_table(self, table_names_for_entities: dict, df: pd.DataFrame):
+        for table_name, entity_name in table_names_for_entities.items():
+            columns = [
+                col
+                for col in df.columns
+                if col not in table_names_for_entities.keys() and col != table_name
+            ]
+            df_view = df[columns]
+            columns[columns.index(entity_name)] = 'id'
+            with self._transaction() as (_, cursor):
+                s = StringIO()
+                df_view.to_csv(s, header=False, index=False, sep='\t')
+                s.seek(0)
+                cursor.copy_from(s, f'{self.schema}.{table_name}', sep='\t', columns=columns)
 
     @exception_decorator
     def get_example(self, field_of_activity, subject_area, column_type, value):
@@ -238,14 +283,15 @@ if __name__ == '__main__':
             config = yaml.safe_load(file)
         except yaml.YAMLError as exc:
             raise exc
-    db = DatabaseConnector(config['postgres'])
-    db.set_schema_if_not_exists()
-    db.create_table_if_not_exists(
-        table='test_table',
-        event_ts='event_ts',
-        created_ts='created_ts',
-        entities={
-            'id1': 'bigserial',
-            'id2': 'bigserial',
-        },
-    )
+    db = PostgresConnector(config['postgres'])
+    db.create_schema_if_not_exists()
+    columns = db.get_columns('feast/offline/driver_info')
+    # db.create_table_if_not_exists(
+    #     table='test_table',
+    #     event_ts='event_ts',
+    #     created_ts='created_ts',
+    #     entities={
+    #         'id1': 'bigserial',
+    #         'id2': 'bigserial',
+    #     },
+    # )
