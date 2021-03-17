@@ -75,6 +75,26 @@ class PostgresConnector:
             )
 
     @exception_decorator
+    def create_log_table_if_not_exists(self):
+        # ToDo: Syntax needs to be checked
+        with self._transaction() as (_, cursor):
+            cursor.execute(
+                sql.SQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS jobs (
+                        "id" SERIAL PRIMARY KEY,
+                        "started" TIMESTAMP WITHOUT TIME ZONE,
+                        "ended" TIMESTAMP WITHOUT TIME ZONE,
+                        "status" TEXT,
+                        "entities" ARRAY,
+                        "feature_table" VARCHAR(255),
+                        "path" TEXT,
+                    )
+                    """
+                )
+            )
+
+    @exception_decorator
     def _create_entity_table_if_not_exists(
         self, table_name: str, entity_type: str, event_ts: str, created_ts: str
     ):
@@ -118,6 +138,44 @@ class PostgresConnector:
             table_names[table_name] = entity_name
         return table_names
 
+    def create_view_if_not_exists(self, table_name, column_data: dict):
+        # ToDo: Syntax needs to be checked
+        with self._transaction() as (_, cursor):
+            cursor.execute(
+                sql.SQL(
+                    """
+                    CREATE VIEW IF NOT EXISTS AS (
+                        SELECT id, feature_table, MAX({event_ts}) as {event_ts}, {created_ts}, path FROM {entity_table}
+                        GROUP BY id, feature_table, {created_ts}, path
+                    )
+                    """
+                ).format(
+                    event_ts=sql.Identifier(column_data['timestamp_column']),
+                    created_ts=sql.Identifier(column_data['created_timestamp_column']),
+                    entity_table=sql.Identifier(table_name),
+                )
+            )
+
+            # https://stackoverflow.com/a/49148545
+            query = sql.SQL(
+                """
+                IF NOT EXISTS(SELECT 'view exists' FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = N{view_name} AND TABLE_SCHEMA = {schema})
+                    BEGIN
+                        DECLARE @v_ViewCreateStatement VARCHAR(MAX) = '
+                            CREATE VIEW {schema}.{view_name} AS
+                                SELECT id, feature_table, MAX({event_ts}) as {event_ts}, {created_ts}, path FROM {entity_table}
+                                GROUP BY id, feature_table, {created_ts}, path'
+                        EXEC (@v_ViewCreateStatement)
+                    END
+                """
+            ).format(
+                view_name=sql.Identifier(f'max_{table_name}'),
+                schema=sql.Identifier(self.schema),
+                event_ts=sql.Identifier(column_data['timestamp_column']),
+                created_ts=sql.Identifier(column_data['created_timestamp_column']),
+                entity_table=sql.Identifier(table_name),
+            )
+
     @exception_decorator
     def get_columns(self, path_extract: str):
         with self._transaction(RealDictCursor) as (_, cursor):
@@ -156,6 +214,26 @@ class PostgresConnector:
                 df_view.to_csv(s, header=False, index=False, sep='\t')
                 s.seek(0)
                 cursor.copy_from(s, f'{self.schema}.{table_name}', sep='\t', columns=columns)
+
+    @exception_decorator
+    def add_log(self, data):
+        # ToDo: Syntax needs to be checked
+        with self._transaction() as (_, cursor):
+            cursor.execute(
+                sql.SQL(
+                    """
+                    INSERT INTO jobs (started, ended, status, entities, feature_table, path)
+                    VALUES({started}, {ended}, {status}, {entities}, {feature_table}, {path})
+                    """
+                ).format(
+                    started=sql.Literal(),
+                    ended=sql.Literal(),
+                    status=sql.Literal(),
+                    entities=sql.Literal(),
+                    feature_table=sql.Literal(),
+                    path=sql.Literal(),
+                )
+            )
 
     @exception_decorator
     def get_example(self, field_of_activity, subject_area, column_type, value):

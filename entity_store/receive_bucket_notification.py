@@ -26,6 +26,7 @@ def index():
 
     db = PostgresConnector(config['postgres'])
     db.create_schema_if_not_exists()
+    db.create_log_table_if_not_exists()
     column_data = db.get_columns(Path(request_json['Key']).parent)
     table_names_for_entities = db.create_entity_tables_if_not_exist(
         column_data, request_json['Key']
