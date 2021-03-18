@@ -5,8 +5,8 @@ import yaml
 from flask import Flask, Response, request
 from flask_httpauth import HTTPTokenAuth
 
-from postgres_connector import PostgresConnector
-from s3_connector import S3Connector
+from connectors.postgres_connector import PostgresConnector
+from connectors.s3_connector import S3Connector
 
 app = Flask(__name__)
 auth = HTTPTokenAuth(scheme='Bearer')
@@ -73,4 +73,4 @@ if __name__ == '__main__':
         except yaml.YAMLError as exc:
             raise exc
     tokens = config['webhook']['tokens']
-    app.run(host='0.0.0.0', port=12346)
+    app.run(host=config['flask']['host'], port=config['flask']['port'])

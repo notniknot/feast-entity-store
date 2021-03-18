@@ -1,3 +1,6 @@
+flask:
+  host: 0.0.0.0
+  port: 12346
 minio:
   endpoint_url: localhost:19000
   aws_access_key_id: xxx

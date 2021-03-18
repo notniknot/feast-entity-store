@@ -3,11 +3,7 @@
 This repository contains an extension to the feast feature store.
 
 ### ToDos
-- view: entityX_ids but only last value (by event)
-- tables + view already present? Create if not
-- log table with runtime stats and co.
-  -  with message field for errors?
-  -  beware of the loop if minio does not get success message
+-  build container
 -  handle delete operations
 
 
