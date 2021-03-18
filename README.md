@@ -7,6 +7,10 @@ This repository contains an extension to the feast feature store.
 -  handle delete operations
 
 
+### Docker commands
+- Build: `docker build --pull --rm -f "Dockerfile" -t feast-entity-store:latest --build-arg HTTP_PROXY=*** --build-arg HTTPS_PROXY=*** .`
+- Run: `docker run --rm -it -v $PWD/entity_store_config.yaml:/app/entity_store/entity_store_config.yaml -p 12346:12346 feast-entity-store:latest`
+
 ### Extract from the MinIO docker-compose container
 ```
 minio:

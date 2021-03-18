@@ -135,7 +135,7 @@ class PostgresConnector:
                                 FROM {schema}.{entity_table}
                                 GROUP BY id, feature_table, {created_ts}, path
                             )
-                            SELECT * FROM groups WHERE rk = 1
+                            SELECT * FROM groups WHERE rk = 1;
                     EXCEPTION
                     WHEN SQLSTATE '42P07' THEN
                         NULL;
