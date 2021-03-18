@@ -24,9 +24,7 @@ class S3Connector:
         try:
             self.client = boto3.client('s3', **config)
         except Exception:
-            logging.getLogger('s3_connector').exception(
-                'Exception occurred while connecting to the S3 storage'
-            )
+            self.logger.exception('Exception occurred while connecting to the S3 storage')
 
     def _split_parquet_path(self, path):
         parts = Path(path).parts
@@ -45,30 +43,38 @@ class S3Connector:
     def query_parquet(self, path, column_data):
         bucket, key = self._split_parquet_path(path)
         column_list, column_string = self._merge_cols(column_data)
-        response = self.client.select_object_content(
-            Bucket=bucket,
-            Key=str(key),
-            ExpressionType='SQL',
-            Expression=f"SELECT {column_string} FROM S3Object",
-            InputSerialization={'Parquet': {}},
-            OutputSerialization={'CSV': {}},
-        )
+        try:
+            response = self.client.select_object_content(
+                Bucket=bucket,
+                Key=str(key),
+                ExpressionType='SQL',
+                Expression=f"SELECT {column_string} FROM S3Object",
+                InputSerialization={'Parquet': {}},
+                OutputSerialization={'CSV': {}},
+            )
+        except Exception as ex:
+            self.logger.exception('Exception occurred while retrieving parquet')
+            raise ex
 
-        for event in response['Payload']:
-            if 'Records' in event:
-                df = pd.read_csv(
-                    StringIO(event['Records']['Payload'].decode('utf-8')),
-                    sep=',',
-                    engine='c',
-                    lineterminator='\n',
-                    names=column_list,
-                )
-                df['feature_table'] = column_data['feature_table']
-                df['path'] = path
-                df[column_data['timestamp_column']] = pd.to_datetime(
-                    df[column_data['timestamp_column']], unit='us'
-                )
-                df[column_data['created_timestamp_column']] = pd.to_datetime(
-                    df[column_data['created_timestamp_column']], unit='us'
-                )
-                yield df
+        try:
+            for event in response['Payload']:
+                if 'Records' in event:
+                    df = pd.read_csv(
+                        StringIO(event['Records']['Payload'].decode('utf-8')),
+                        sep=',',
+                        engine='c',
+                        lineterminator='\n',
+                        names=column_list,
+                    )
+                    df['feature_table'] = column_data['feature_table']
+                    df['path'] = path
+                    df[column_data['timestamp_column']] = pd.to_datetime(
+                        df[column_data['timestamp_column']], unit='us'
+                    )
+                    df[column_data['created_timestamp_column']] = pd.to_datetime(
+                        df[column_data['created_timestamp_column']], unit='us'
+                    )
+                    yield df
+        except Exception as ex:
+            self.logger.exception('Exception occurred while iterating response payload')
+            raise ex
