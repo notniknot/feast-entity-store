@@ -1,4 +1,30 @@
-# feast-entity-store
+<h1 align="center">
+	<img
+		width="400"
+		alt="The Lounge"
+		src="docs/feast_icon.png"
+    >
+</h1>
+
+<h3 align="center">
+	Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+</h3>
+
+<p align="center">
+    <img src="https://img.shields.io/badge/codestyle-black-gray">
+    <img src="https://img.shields.io/badge/language-python-green">
+    <img src="https://img.shields.io/badge/blank-blank-inactive">
+    <img src="https://img.shields.io/badge/blank-blank-inactive">
+</p>
+
+<p align="center">
+  <a href="#overview">Overview</a> •
+  <a href="#todos">ToDos</a> •
+  <a href="#docker-commands">Docker commands</a> •
+  <a href="#extract-from-the-minio-docker-compose-container">Docker-Compose</a>
+</p>
+
+# Overview
 
 This repository contains an extension to the feast feature store.
 
