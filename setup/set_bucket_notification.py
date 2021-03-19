@@ -3,20 +3,20 @@ from minio import Minio
 from minio.notificationconfig import NotificationConfig, QueueConfig, SuffixFilterRule
 
 if __name__ == '__main__':
-    with open("entity_store/entity_store_config.yaml", 'r') as file:
+    with open("config/entity_store_config.yaml", 'r') as file:
         try:
             config = yaml.safe_load(file)
         except yaml.YAMLError as exc:
             raise exc
 
     client = Minio(
-        endpoint=config['minio']['endpoint'],
-        access_key=config['minio']['access_key'],
-        secret_key=config['minio']['secret_key'],
+        endpoint=config['minio']['endpoint_url'].replace('http://', ''),
+        access_key=config['minio']['aws_access_key_id'],
+        secret_key=config['minio']['aws_secret_access_key'],
         secure=False,
     )
 
-    config = NotificationConfig(
+    not_config = NotificationConfig(
         queue_config_list=[
             QueueConfig(
                 "arn:minio:sqs::_:webhook",
@@ -26,5 +26,5 @@ if __name__ == '__main__':
             ),
         ],
     )
-    client.set_bucket_notification("feast", config)
+    client.set_bucket_notification("feast", not_config)
     print('Successfuly set notification')
