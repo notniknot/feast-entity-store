@@ -35,7 +35,7 @@ Additionally, I wanted to define a timespan for the event timetamp of an entity 
 -> See similar [issue](https://github.com/feast-dev/feast/issues/1361)
 
 # Target Group
-This repo is for engineers who encountered the same problems as described and use MinIO in their Feast-Setup as their offline feature store.
+This repo is for engineers who encountered the same problems as described and use MinIO in their Feast-Setup as their offline feature store for .parquet-files.
 
 # Architecture
 
@@ -66,7 +66,7 @@ This repo is for engineers who encountered the same problems as described and us
     ```
 
 ## 2. Configure Minio
-- Set minio webhook - docker-compose example:
+- Enable MinIO webhooks (see [notification guide](https://docs.min.io/docs/minio-bucket-notification-guide.html#webhooks)) - docker-compose example:
     ```yaml
     minio:
         restart: always
@@ -87,26 +87,29 @@ This repo is for engineers who encountered the same problems as described and us
             - "${MINIO_PORT:-19001}:9000"
         command: server /data
     ```
-- Set minio bucket-notification: `python set_bucket_notification.py`
-## 4a Setup with a standalone Docker-Container
-3. Build image (example with proxy):
+- Set a specific bucket notification for create-/delete-operations with .parquet-files: `python setup/set_bucket_notification.py`
+## 3a. Setup feast-entity-store with a standalone Docker-Container
+1. Build image (example with proxy):
     - `docker build --pull --rm -f "Dockerfile" -t feast-entity-store:latest --build-arg HTTP_PROXY=http://<proxy>:8080/ --build-arg HTTPS_PROXY=http://<proxy>:8080/ .`
-4. Run container:
+2. Run container:
    - `docker run --rm -it -v $PWD/config/entity_store_config.yaml:/app/entity_store/entity_store_config.yaml -p 12346:12346 feast-entity-store:latest`
 
-## 4b Integration in the Feast-Docker-Compose-Setup
-1. Provide files
+## 3b. Integrate feast-entity-store in the Feast-Docker-Compose-Setup
+1. Provide files in the following tree structure
+    ```
+    ...
+    ```
 2. Create service for python application
-```yaml
-entity_store:
-    restart: on-failure
-    image: feast-entity-store:latest
-    container_name: feast-entity-store
-    volumes:
-        - ./entity_store/entity_store_config.yaml:/app/entity_store/entity_store_config.yaml
-    expose:
-        - 12346
-```
+    ```yaml
+    entity_store:
+        restart: on-failure
+        image: feast-entity-store:latest
+        container_name: feast-entity-store
+        volumes:
+            - ./entity_store/entity_store_config.yaml:/app/entity_store/entity_store_config.yaml
+        expose:
+            - 12346
+    ```
 
 ## Result
 |                                                          1                                                           |                                                          2                                                           |                                                          3                                                           |                                                          4                                                           |
