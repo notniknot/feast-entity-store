@@ -7,7 +7,7 @@
 </h1>
 
 <h3 align="center">
-	An extension to <a href="https://feast.dev/" target="_blank">Feast (Feature Store)</a> to support feature retrieval from MinIO without knowing the exact Entity-IDs
+	An extension for <a href="https://feast.dev/" target="_blank">Feast (Feature Store)</a> to support feature retrieval from MinIO without knowing the exact Entity-IDs
 </h3>
 
 <p align="center">
@@ -42,14 +42,62 @@ This repo is for engineers who encountered the same problems as described and us
 ![architecture](./docs/fes_architecture.png)
 
 # Setup
-## Integration in the Feast-Docker-Compose-Setup
-1. Fill entity_store_config.yaml
-2. Configure minio with set_bucket_notification
-3. Provide files
-4. Create service for python application
 
-### Extract from the MinIO docker-compose container
-```
+## 1. Create entity_store_config.yaml
+- Copy `config/entity_store_config-template.yaml` to `config/entity_store_config.yaml`
+- Change the following configuration according to your environment
+    ```yaml
+    flask:
+        host: 0.0.0.0
+        port: 12346
+    minio:
+        endpoint_url: http://<minio-ip>:<minio-port>
+        aws_access_key_id: <access-key>
+        aws_secret_access_key: <secret-access-key>
+    webhook:
+        tokens:
+            - <token>
+    postgres:
+        host: <postgres-ip>
+        port: <postgres-port>
+        database: <postgres-db>
+        user: <postgres-user>
+        password: <postgres-pw>
+    ```
+
+## 2. Configure Minio
+- Set minio webhook - docker-compose example:
+    ```yaml
+    minio:
+        restart: always
+        image: minio/minio:latest
+        container_name: feast_minio
+        environment:
+            - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID:-access_key}
+            - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY:-secret_key}
+            - MINIO_NOTIFY_WEBHOOK_ENABLE=on
+            - MINIO_NOTIFY_WEBHOOK_ENDPOINT=http://<ip>:12346/minio/events
+            - MINIO_NOTIFY_WEBHOOK_AUTH_TOKEN=<token>
+            - MINIO_NOTIFY_WEBHOOK_QUEUE_DIR=/queue
+            - MINIO_API_SELECT_PARQUET=on
+        volumes:
+            - ./minio/data:/data:Z
+            - ./minio/queue:/queue:Z
+        ports:
+            - "${MINIO_PORT:-19001}:9000"
+        command: server /data
+    ```
+- Set minio bucket-notification: `python set_bucket_notification.py`
+## 4a Setup with a standalone Docker-Container
+3. Build image (example with proxy):
+    - `docker build --pull --rm -f "Dockerfile" -t feast-entity-store:latest --build-arg HTTP_PROXY=http://<proxy>:8080/ --build-arg HTTPS_PROXY=http://<proxy>:8080/ .`
+4. Run container:
+   - `docker run --rm -it -v $PWD/config/entity_store_config.yaml:/app/entity_store/entity_store_config.yaml -p 12346:12346 feast-entity-store:latest`
+
+## 4b Integration in the Feast-Docker-Compose-Setup
+1. Provide files
+2. Create service for python application
+```yaml
 entity_store:
     restart: on-failure
     image: feast-entity-store:latest
@@ -58,36 +106,7 @@ entity_store:
         - ./entity_store/entity_store_config.yaml:/app/entity_store/entity_store_config.yaml
     expose:
         - 12346
-
-minio:
-    restart: always
-    image: minio/minio:RELEASE.2021-03-01T04-20-55Z
-    container_name: feast_minio
-    environment:
-        - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID:-access_key}
-        - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY:-secret_key}
-        - MINIO_NOTIFY_WEBHOOK_ENABLE=on
-        - MINIO_NOTIFY_WEBHOOK_ENDPOINT=http://feast-entity-store:12346/minio/events
-        - MINIO_NOTIFY_WEBHOOK_AUTH_TOKEN=***
-        - MINIO_NOTIFY_WEBHOOK_QUEUE_DIR=/queue
-        - MINIO_API_SELECT_PARQUET=on
-    volumes:
-        - ./minio/data:/data:Z
-        - ./minio/queue:/queue:Z
-    ports:
-        - "${MINIO_PORT:-19001}:9000"
-    command: server /data
 ```
-
-## Setup with a standalone Docker-Container
-1. Fill entity_store_config.yaml
-2. Configure minio with set_bucket_notification
-3. Build image
-4. Run container
-
-- Build: `docker build --pull --rm -f "Dockerfile" -t feast-entity-store:latest --build-arg HTTP_PROXY=http://proxy:8080/ --build-arg HTTPS_PROXY=http://proxy:8080/ .`
-- Run: `docker run --rm -it -v $PWD/config/entity_store_config.yaml:/app/entity_store/entity_store_config.yaml -p 12346:12346 feast-entity-store:latest`
-
 
 ## Result
 |                                                          1                                                           |                                                          2                                                           |                                                          3                                                           |                                                          4                                                           |
@@ -96,6 +115,5 @@ minio:
 
 
 # ToDos
--  build container
 -  check if deletion
 -  handle delete operations

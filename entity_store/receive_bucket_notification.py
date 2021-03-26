@@ -73,4 +73,4 @@ if __name__ == '__main__':
         except yaml.YAMLError as exc:
             raise exc
     tokens = config['webhook']['tokens']
-    app.run(host=config['flask']['host'], port=config['flask']['port'])
+    app.run(host=config['flask']['host'], port=config['flask']['port'], debug=False)
