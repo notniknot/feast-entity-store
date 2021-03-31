@@ -67,7 +67,7 @@ def index():
 
 
 if __name__ == '__main__':
-    with open("entity_store/entity_store_config.yaml", 'r') as file:
+    with open("src/entity_store_config.yaml", 'r') as file:
         try:
             config = yaml.safe_load(file)
         except yaml.YAMLError as exc:
