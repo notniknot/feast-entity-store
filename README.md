@@ -45,7 +45,7 @@ This repo is for engineers who encountered the same problems as described and us
 
 ## 1. Create entity_store_config.yaml
 - Copy `config/entity_store_config-template.yaml` to `config/entity_store_config.yaml`
-- Change the following configuration according to your environment
+- Change the following configuration according to your environment (in these examples I use the port 12346 for the Flask webserver. You can change it in the docker- and config-files)
     ```yaml
     flask:
         host: 0.0.0.0
@@ -95,20 +95,34 @@ This repo is for engineers who encountered the same problems as described and us
    - `docker run --rm -it -v $PWD/config/entity_store_config.yaml:/app/entity_store/entity_store_config.yaml -p 12346:12346 feast-entity-store:latest`
 
 ## 3b. Integrate feast-entity-store in the Feast-Docker-Compose-Setup
-1. Provide files in the following tree structure
+1. Create a directory for your docker-compose that contains the necessary files
+2. Copy config, src, Dockerfile and .dockerignore to the created directory
     ```
-    ...
+    entity_store
+    │   .dockerignore
+    │   Dockerfile
+    │
+    ├───config
+    │       entity_store_config.yaml
+    │
+    └───src
+        │   receive_bucket_notification.py
+        │
+        └───connectors
+            │   postgres_connector.py
+            │   s3_connector.py
     ```
-2. Create service for python application
+3. Create a service for the python application
     ```yaml
     entity_store:
         restart: on-failure
-        image: feast-entity-store:latest
+        build: ./entity_store
+        image: feast-entity-store
         container_name: feast-entity-store
         volumes:
-            - ./entity_store/entity_store_config.yaml:/app/entity_store/entity_store_config.yaml
-        expose:
-            - 12346
+            - ./entity_store/config/entity_store_config.yaml:/app/config/entity_store_config.yaml
+        ports:
+            - 12346:12346
     ```
 
 ## Result
