@@ -23,7 +23,11 @@ def verify_token(token):
 @auth.login_required
 def index():
     request_json = request.json
+    if request_json['EventName'].startswith('s3:ObjectRemoved:'):
+        print('Removing currently not supported ->', request_json['Key'])
+        return Response(status=200)
     started = datetime.now()
+
     try:
         db = PostgresConnector(config['postgres'])
     except Exception:
@@ -43,23 +47,28 @@ def index():
         s3 = S3Connector(config['minio'])
         for df in s3.query_parquet(path=request_json['Key'], column_data=column_data):
             db.copy_into_table(table_names_for_entities, df)
+        print(
+            'Writing ->',
+            f'entity_names: {column_data.get("entity_names")},',
+            f'feature_table: {column_data.get("feature_table")},',
+            f'path: {request_json.get("Key")}',
+        )
     except Exception as ex:
         status = 'failed'
         status_msg = str(ex)
 
     ended = datetime.now()
     try:
-        db.add_log(
-            {
-                'started': started,
-                'ended': ended,
-                'status': status,
-                'status_msg': status_msg,
-                'entity_names': column_data.get('entity_names') if column_data else None,
-                'feature_table': column_data.get('feature_table') if column_data else None,
-                'path': request_json['Key'],
-            }
-        )
+        data = {
+            'started': started,
+            'ended': ended,
+            'status': status,
+            'status_msg': status_msg,
+            'entity_names': column_data.get('entity_names') if column_data else None,
+            'feature_table': column_data.get('feature_table') if column_data else None,
+            'path': request_json['Key'],
+        }
+        db.add_log(data)
     except Exception as ex:
         print('Could not save log:', ex)
 
