@@ -132,5 +132,8 @@ This repo is for engineers who encountered the same problems as described and us
 
 
 # ToDos
--  check if deletion
--  handle delete operations
+- Architecture
+   -  Describe behavior when ingesting data
+-  Document Result
+   -  Screenshots
+-  Handle delete operations by removing the corresponding entries from the entity tables
