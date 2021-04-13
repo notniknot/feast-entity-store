@@ -41,6 +41,30 @@ This repo is for engineers who encountered the same problems as described and us
 
 ![architecture](./docs/fes_architecture.png)
 
+1. The data gets manually/automatically ingested as a parquet-file in the S3-storage
+2. The S3-ingestion triggers a webhook notification
+3. The notification processor retrieves specific information regarding the ingested data:
+   1. entity_names
+   2. entity_types
+   3. feature_table
+   4. timestamp_column (event timestamp)
+   5. created_timestamp_column
+4. The notification processor downloads the entities via S3 Select SQL
+5. The notification processor joins and stores the information 
+   - into the `entity_lookup.job` table:
+     - started
+     - ended
+     - status
+     - status_msg
+     - entity_names
+     - feature_table
+     - path
+   - in a `entity_lookup.entity-<name>` table:
+     - id
+     - feature_table
+     - event_timestamp
+     - created_timestamp
+     - path (S3 path to parquet file)
 # Setup
 
 ## 1. Create entity_store_config.yaml
@@ -126,14 +150,10 @@ This repo is for engineers who encountered the same problems as described and us
     ```
 
 ## Result
-|                                                          1                                                           |                                                          2                                                           |                                                          3                                                           |                                                          4                                                           |
-| :------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------: |
-| <img src="https://raw.githubusercontent.com/notniknot/feast-entity-store/....PNG" title="Screenshot 1" width="100%"> | <img src="https://raw.githubusercontent.com/notniknot/feast-entity-store/....PNG" title="Screenshot 2" width="100%"> | <img src="https://raw.githubusercontent.com/notniknot/feast-entity-store/....PNG" title="Screenshot 3" width="100%"> | <img src="https://raw.githubusercontent.com/notniknot/feast-entity-store/....PNG" title="Screenshot 4" width="100%"> |
+| The `jobs` table contains all successful and failed attempts to write the entity-ids |     An entity table in the `entity_lookup` schema is being created and populated      |    A view to access the latest entitiy-ids is being created     |                 The view can be queried nearly effortless                  |
+| :----------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :-------------------------------------------------------------: | :------------------------------------------------------------------------: |
+|   <img src="docs/jobs_table_example.PNG" title="jobs_table_example" width="100%">    | <img src="docs/entity_driver_id_table_example.PNG" title="Screenshot 2" width="100%"> | <img src="docs/view_sql.PNG" title="Screenshot 3" width="100%"> | <img src="docs/view_example_select.PNG" title="Screenshot 4" width="100%"> |
 
 
 # ToDos
-- Architecture
-   -  Describe behavior when ingesting data
--  Document Result
-   -  Screenshots
 -  Handle delete operations by removing the corresponding entries from the entity tables
