@@ -13,8 +13,7 @@
 <p align="center">
     <img src="https://img.shields.io/badge/language-python-green">
     <img src="https://img.shields.io/badge/codestyle-black-black">
-    <img src="https://img.shields.io/badge/last commit-yesterday-inactive">
-    <img src="https://img.shields.io/badge/commit acitvity-none-inactive">
+    <img src="https://img.shields.io/github/last-commit/notniknot/feast-entity-store">
 </p>
 
 <p align="center">
