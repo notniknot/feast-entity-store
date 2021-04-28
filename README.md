@@ -7,7 +7,7 @@
 </h1>
 
 <h3 align="center">
-	An extension for <a href="https://feast.dev/" target="_blank">Feast (Feature Store)</a> to support feature retrieval from MinIO without knowing the exact Entity-IDs
+	An extension for the Machine Learning Feature Store <a href="https://feast.dev/" target="_blank">Feast</a> to support feature retrieval from MinIO without knowing the exact Entity-IDs
 </h3>
 
 <p align="center">
@@ -35,7 +35,7 @@ Additionally, I wanted to define a timespan for the event timetamp of an entity 
 -> See similar [issue](https://github.com/feast-dev/feast/issues/1361)
 
 # Target Group
-This repo is for engineers who encountered the same problems as described and use MinIO in their Feast-Setup as their offline feature store for .parquet-files.
+This repo is for engineers who encountered the same problems as described and use MinIO in their Feast-Setup as their offline feature store for .parquet-files. This system is supposed to run parallel to your Kubernetes- or Docker-Compose-Feast-Setup. It is not necessary to use feast-entity-store with the local standalone Python-Version as you can use SQL-Queries to retrieve entity identifiers (as of Version 0.10).
 
 # Architecture
 
