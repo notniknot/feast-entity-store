@@ -13,8 +13,7 @@
 <p align="center">
     <img src="https://img.shields.io/badge/language-python-green">
     <img src="https://img.shields.io/badge/codestyle-black-black">
-    <img src="https://img.shields.io/badge/last commit-yesterday-inactive">
-    <img src="https://img.shields.io/badge/commit acitvity-none-inactive">
+    <img src="https://img.shields.io/github/last-commit/notniknot/feast-entity-store">
 </p>
 
 <p align="center">
@@ -26,7 +25,7 @@
 </p>
 
 # Addressed Issues
-This repro addresses the limitation of Feast regarding the necessity to specify the entity identifiers when retrieving features either from the offline store or the online store. In many use cases I encountered, I did not know the identifiers. This concerns the following scenarios:
+This repo addresses the limitation of Feast regarding the necessity to specify the entity identifiers when retrieving features either from the offline store or the online store. In many use cases I encountered, I did not know the identifiers. This concerns the following scenarios:
 -  Batch prediction
 -  Model training
 
