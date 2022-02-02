@@ -7,7 +7,8 @@
 </h1>
 
 <h3 align="center">
-	An extension for the Machine Learning Feature Store <a href="https://feast.dev/" target="_blank">Feast</a> to support feature retrieval from MinIO without knowing the exact Entity-IDs. <b>This repository supports only older versions of feast before the redesign.</b>
+	An extension for the Machine Learning Feature Store <a href="https://feast.dev/" target="_blank">Feast</a> to support feature retrieval from MinIO without knowing the exact Entity-IDs.<br>
+	Info: This repository supports only older versions of Feast before the redesign.
 </h3>
 
 <p align="center">
